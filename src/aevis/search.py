@@ -32,7 +32,13 @@ def cross_entropy_program_search(
     elite_count: int = 6,
     generations: int = 4,
 ) -> SearchResult:
-    """Search complete programs using only whole-program environment outcomes."""
+    """Search complete programs using only whole-program environment outcomes.
+
+    `evaluate` can have variable interaction cost. Because a candidate rollout
+    cannot know its final cost until it has executed, the last candidate may
+    overshoot `interaction_budget`. That cost is always counted; interactions
+    are never silently discarded.
+    """
     mean = (
         np.zeros(program_shape, dtype=np.float32)
         if init_mean is None
@@ -64,8 +70,6 @@ def cross_entropy_program_search(
         evaluated: list[tuple[float, bool, np.ndarray]] = []
         for candidate in candidates:
             score, verified, cost = evaluate(candidate)
-            if used + cost > interaction_budget and evaluated:
-                break
             used += int(cost)
             evaluated.append((float(score), bool(verified), candidate.copy()))
 
@@ -76,6 +80,8 @@ def cross_entropy_program_search(
 
             if verified:
                 return SearchResult(candidate.copy(), float(score), True, used)
+            if used >= interaction_budget:
+                break
 
         if not evaluated:
             break
