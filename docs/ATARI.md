@@ -43,6 +43,14 @@ The repository does not download or redistribute ROMs.
 
 ## Smoke test
 
+The latent program/search tests do not need ALE or ROMs:
+
+```bash
+pytest tests/test_atari_program.py -q
+```
+
+For the environment adapter itself:
+
 ```bash
 python - <<'PY'
 from benchmarks.atari import AtariCloneEnv
@@ -82,6 +90,23 @@ ALE/BeamRider-v5
 
 Run at least 3 seeds before interpreting a result.
 
+## Cold whole-program search ablation
+
+This is the most important non-RL ablation. It uses **the exact same pixel
+preprocessing, latent policy representation, and CEM whole-program search as
+A-EVIS**, but it disables the cross-episode verified-program library.
+
+```bash
+python experiments/atari/run_cold.py \
+  --game ALE/Pong-v5 \
+  --seed 0 \
+  --frame-budget 1000000 \
+  --out results/atari/cold_pong_seed0.csv
+```
+
+If A-EVIS does not improve over this baseline, then the Atari result would support
+black-box search but not the amortization mechanism that distinguishes A-EVIS.
+
 ## PPO and DQN reference baselines
 
 ```bash
@@ -109,8 +134,31 @@ With action repeat 4:
 raw emulator frames ~= agent decisions * 4
 ```
 
-A-EVIS counts frames spent in every candidate rollout, including rejected branches.
-That is essential: branch/search interaction is not free.
+A-EVIS and Cold CEM count frames spent in every candidate rollout, including
+rejected branches. Whole-program rollouts have variable cost, so the last rollout may
+slightly overshoot a requested budget; the implementation counts that entire rollout
+rather than silently dropping its cost.
+
+For an approximately 1M raw-frame comparison, the default PPO/DQN reference command
+uses 250k agent decisions with action repeat 4.
+
+## Suggested comparison table
+
+For every game and seed, report at minimum:
+
+```text
+A-EVIS
+Cold CEM (same representation, no library)
+PPO
+DQN
+```
+
+Primary comparison axes:
+
+1. evaluation return vs raw emulator frames;
+2. wall-clock time;
+3. A-EVIS minus Cold CEM, which isolates amortization;
+4. variance across seeds.
 
 ## Results policy
 
